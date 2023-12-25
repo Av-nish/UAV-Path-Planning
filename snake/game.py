@@ -3,6 +3,7 @@ import random
 from enum import Enum
 from collections import namedtuple
 import numpy as np
+import sys
 
 pygame.init()
 font = pygame.font.Font('arial.ttf', 25)
@@ -25,7 +26,8 @@ BLACK = (0,0,0)
 GREEN = (170,120,120)
 
 BLOCK_SIZE = 20
-SPEED = 9999999
+SPEED = 20
+SPEED = sys.maxsize
 
 class SnakeGameAI:
 
@@ -79,7 +81,7 @@ class SnakeGameAI:
 
         self.obstacle = []
 
-        for i in range(8):
+        for i in range(5):
             obstacle_x = random.randint(0, 640)
             obstacle_y = random.randint(0, 480)
             obstacle_x = obstacle_x // BLOCK_SIZE * BLOCK_SIZE
@@ -103,7 +105,7 @@ class SnakeGameAI:
         # 3. check if game over
         reward = 0
         game_over = False
-        if self.is_collision() or self.frame_iteration > 100*len(self.snake):
+        if self.is_collision() or self.frame_iteration > 90 * (1 + self.score):
             game_over = True
             reward = -10
             return reward, game_over, self.score
@@ -130,8 +132,8 @@ class SnakeGameAI:
         if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
             return True
         # hits itself
-        if pt in self.snake[1:]:
-            return True
+        # if pt in self.snake[1:]:
+        #     return True
         
         # hits obstacle
         if pt in self.obstacle:
@@ -143,9 +145,11 @@ class SnakeGameAI:
     def _update_ui(self):
         self.display.fill(BLACK)
 
-        for pt in self.snake:
-            pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
-            pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x+4, pt.y+4, 12, 12))
+        # for pt in self.snake:
+        #     pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
+        #     pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x+4, pt.y+4, 12, 12))
+
+        pygame.draw.rect(self.display, BLUE1, pygame.Rect(self.head.x, self.head.y, BLOCK_SIZE, BLOCK_SIZE))
 
         pygame.draw.rect(self.display, RED, pygame.Rect(self.food.x, self.food.y, BLOCK_SIZE, BLOCK_SIZE))
 
