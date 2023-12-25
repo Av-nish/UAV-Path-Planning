@@ -35,13 +35,13 @@ class SnakeGameAI:
         # init display
         self.obstacle = []
 
-        for i in range(8):
-            obstacle_x = random.randint(0, 640)
-            obstacle_y = random.randint(0, 480)
-            obstacle_x = obstacle_x // BLOCK_SIZE * BLOCK_SIZE
-            obstacle_y = obstacle_y // BLOCK_SIZE * BLOCK_SIZE
+        # for i in range(8):
+        #     obstacle_x = random.randint(0, 640)
+        #     obstacle_y = random.randint(0, 480)
+        #     obstacle_x = obstacle_x // BLOCK_SIZE * BLOCK_SIZE
+        #     obstacle_y = obstacle_y // BLOCK_SIZE * BLOCK_SIZE
 
-            self.obstacle.append(Point(obstacle_x, obstacle_y))
+        #     self.obstacle.append(Point(obstacle_x, obstacle_y))
 
         self.display = pygame.display.set_mode((self.w, self.h))
         pygame.display.set_caption('Snake')
@@ -61,6 +61,7 @@ class SnakeGameAI:
         self.score = 0
         self.food = None
         self._place_food()
+        self.place_obstacle()
         self.frame_iteration = 0
 
 
@@ -72,6 +73,19 @@ class SnakeGameAI:
 
         if self.food in self.snake or self.food in self.obstacle:
             self._place_food()
+
+
+    def place_obstacle(self):
+
+        self.obstacle = []
+
+        for i in range(8):
+            obstacle_x = random.randint(0, 640)
+            obstacle_y = random.randint(0, 480)
+            obstacle_x = obstacle_x // BLOCK_SIZE * BLOCK_SIZE
+            obstacle_y = obstacle_y // BLOCK_SIZE * BLOCK_SIZE
+
+            self.obstacle.append(Point(obstacle_x, obstacle_y))
 
 
     def play_step(self, action):
