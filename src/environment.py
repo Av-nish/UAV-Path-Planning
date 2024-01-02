@@ -42,13 +42,13 @@ def calculate_distance(p1, p2):
 
 class Environment:
 
-    def __init__(self, w=640, h=480):
+    def __init__(self, w=640, h=480, UAV_Count=1):
         self.w = w
         self.h = h
         # init display
         self.obstacle = []
         self.distane_left = 0
-
+        self.UAV_Count = UAV_Count
 
         # static obstacle
 
@@ -73,8 +73,6 @@ class Environment:
         #     for i in obst:
         #         self.fixed_obstacles.append(i)
     # Return four points forming an irregular object
-    
-
 
         for i in range(8):
             obstacle_x = random.randint(0, 640)
@@ -93,10 +91,9 @@ class Environment:
         # init game state
         self.direction = Direction.LEFT
 
+        # for uav in range(UAV_Count):
+
         self.head = Point(self.w - BLOCK_SIZE, 0)
-        self.body = [self.head,
-                      Point(self.head.x-BLOCK_SIZE, self.head.y),
-                      Point(self.head.x-(2*BLOCK_SIZE), self.head.y)]
 
         self.score = 0
         self.destination = None
@@ -147,7 +144,6 @@ class Environment:
 
         # 2. move
         self._move(action)  # update the head
-        self.body.insert(0, self.head)
 
         # 3. check if game over
         reward = 0
@@ -170,8 +166,6 @@ class Environment:
             reward = 10
             return reward, game_over, self.score
             # self.set_destination()
-        else:
-            self.body.pop()
 
         # 5. update ui and clock
         self._update_ui()
@@ -185,14 +179,11 @@ class Environment:
         # hits boundary
         if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
             return True
-        # hits itself
-        # if pt in self.body[1:]:
-        #     return True
 
         # hits obstacle
-        if pt in self.obstacle:# or pt in self.fixed_obstacles:
+        if pt in self.obstacle:  # or pt in self.fixed_obstacles:
             return True
-    
+
         # if pt in self.fixed_obstacles:
         #     print('fixed obs*******************')
         #     return True
@@ -201,10 +192,6 @@ class Environment:
 
     def _update_ui(self):
         self.display.fill(BLACK)
-
-        # for pt in self.body:
-        #     pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
-        #     pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x+4, pt.y+4, 12, 12))
 
         pygame.draw.rect(self.display, BLUE1, pygame.Rect(
             self.head.x, self.head.y, BLOCK_SIZE, BLOCK_SIZE))
@@ -215,7 +202,7 @@ class Environment:
         for obs in self.obstacle:
             pygame.draw.rect(self.display, GREEN, pygame.Rect(
                 obs.x, obs.y, BLOCK_SIZE, BLOCK_SIZE))
-            
+
         # for obs in self.fixed_obstacles:
         #     pygame.draw.rect(self.display, OBS_COL, pygame.Rect(
         #         obs.x, obs.y, BLOCK_SIZE, BLOCK_SIZE))
