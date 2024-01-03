@@ -42,13 +42,14 @@ def calculate_distance(p1, p2):
 
 class Environment:
 
-    def __init__(self, w=640, h=480, UAV_Count=2):
+    def __init__(self, w=640, h=480, UAV_Count=3):
         self.w = w
         self.h = h
         # init display
         self.obstacle = []
         self.distane_left = [0] * UAV_Count
         self.UAV_Count = UAV_Count
+        self.head = []
 
         # static obstacle
 
@@ -89,20 +90,19 @@ class Environment:
 
     def reset(self):
         # init game state
-        self.direction = [Direction.LEFT, Direction.LEFT]
+        self.direction = [Direction.LEFT] * self.UAV_Count
 
         # for uav in range(UAV_Count):
 
         self.head = [Point(self.w - BLOCK_SIZE, 0),
-                     Point((self.w // 2 - BLOCK_SIZE), 0)]
+                     Point((self.w // 2 - BLOCK_SIZE), 0), Point((3 * BLOCK_SIZE), 0)]
 
         self.score = [0] * self.UAV_Count
         self.destination = None
         self.set_destination()
         self.place_obstacle()
         self.frame_iteration = 0
-        self.distane_left = [calculate_distance(
-            self.head[0], self.destination), calculate_distance(self.head[1], self.destination)]
+        self.distane_left = [calculate_distance(self.head[i], self.destination) for i in range(self.UAV_Count)]
 
     def set_destination(self):
         x = 0
