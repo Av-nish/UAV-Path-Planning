@@ -30,7 +30,7 @@ GREEN = (170, 120, 120)
 OBS_COL = (70, 20, 220)
 
 BLOCK_SIZE = 20
-SPEED = 20
+SPEED = 50
 # SPEED = sys.maxsize
 
 
@@ -42,12 +42,12 @@ def calculate_distance(p1, p2):
 
 class Environment:
 
-    def __init__(self, w=640, h=480, UAV_Count=1):
+    def __init__(self, w=640, h=480, UAV_Count=2):
         self.w = w
         self.h = h
         # init display
         self.obstacle = []
-        self.distane_left = 0
+        self.distane_left = [0] * UAV_Count
         self.UAV_Count = UAV_Count
 
         # static obstacle
@@ -89,36 +89,29 @@ class Environment:
 
     def reset(self):
         # init game state
-        self.direction = Direction.LEFT
+        self.direction = [Direction.LEFT, Direction.LEFT]
 
         # for uav in range(UAV_Count):
 
-        self.head = Point(self.w - BLOCK_SIZE, 0)
+        self.head = [Point(self.w - BLOCK_SIZE, 0),
+                     Point((self.w // 2 - BLOCK_SIZE), 0)]
 
-        self.score = 0
+        self.score = [0] * self.UAV_Count
         self.destination = None
         self.set_destination()
         self.place_obstacle()
         self.frame_iteration = 0
-        self.distane_left = calculate_distance(self.head, self.destination)
+        self.distane_left = [calculate_distance(
+            self.head[0], self.destination), calculate_distance(self.head[1], self.destination)]
 
     def set_destination(self):
-
-        # x = random.randint(0, (self.w-BLOCK_SIZE )//BLOCK_SIZE )*BLOCK_SIZE
-        # y = random.randint(0, (self.h-BLOCK_SIZE )//BLOCK_SIZE )*BLOCK_SIZE
-
         x = 0
         y = self.h - BLOCK_SIZE
-
         self.destination = Point(x, y)
-
-        # if self.destination in self.obstacle:
-        #     self.set_destination()
 
     def place_obstacle(self):
 
         self.obstacle = []
-
         no_of_obstacles = 4
 
         while (no_of_obstacles):
@@ -129,7 +122,7 @@ class Environment:
 
             pt = Point(obstacle_x, obstacle_y)
 
-            if pt != self.destination:
+            if pt != self.destination and pt not in self.head:
                 self.obstacle.append(Point(obstacle_x, obstacle_y))
                 no_of_obstacles -= 1
 
@@ -146,26 +139,35 @@ class Environment:
         self._move(action)  # update the head
 
         # 3. check if game over
-        reward = 0
+        reward = [0] * self.UAV_Count
 
         # Reward according to distance (give reward according to f cost instead)
-        d_left = calculate_distance(self.head, self.destination)
-        reward += self.distane_left - d_left
-        self.distane_left = d_left
+        for i in range(self.UAV_Count):
+            d_left = calculate_distance(self.head[i], self.destination)
+            reward[i] += self.distane_left[i] - d_left
+            self.distane_left[i] = d_left
 
-        game_over = False
-        if self.is_collision() or self.frame_iteration > 90 * (1 + self.score):
-            game_over = True
-            reward = -10
+        game_over = [False] * self.UAV_Count
+
+        for i in range(self.UAV_Count):
+            if self.is_collision(pt=self.head[i]) or self.frame_iteration > 90 * (1 + self.score[i]):
+                # print('takkar')
+                game_over[i] = True
+                reward[i] = -10
+
+        if all(game_over):
+            # print('over')
             return reward, game_over, self.score
 
         # 4. place new destination or just move
-        if self.head == self.destination:
-            self.score += 1
-            game_over = True
-            reward = 10
+        for i in range(self.UAV_Count):
+            if self.score[i] != 1 and self.head[i] == self.destination:
+                self.score[i] += 1
+                game_over[i] = True
+                reward[i] = 10
+        
+        if all(game_over):
             return reward, game_over, self.score
-            # self.set_destination()
 
         # 5. update ui and clock
         self._update_ui()
@@ -193,8 +195,9 @@ class Environment:
     def _update_ui(self):
         self.display.fill(BLACK)
 
-        pygame.draw.rect(self.display, BLUE1, pygame.Rect(
-            self.head.x, self.head.y, BLOCK_SIZE, BLOCK_SIZE))
+        for i in range(self.UAV_Count):
+            pygame.draw.rect(self.display, BLUE1, pygame.Rect(
+                self.head[i].x, self.head[i].y, BLOCK_SIZE, BLOCK_SIZE))
 
         pygame.draw.rect(self.display, RED, pygame.Rect(
             self.destination.x, self.destination.y, BLOCK_SIZE, BLOCK_SIZE))
@@ -213,31 +216,42 @@ class Environment:
 
     def _move(self, action):
         # [straight, right, left]
-
+        # print(action)
         clock_wise = [Direction.RIGHT, Direction.DOWN,
                       Direction.LEFT, Direction.UP]
-        idx = clock_wise.index(self.direction)
+        
+        # idx = clock_wise.index(self.direction)
+        idx = [clock_wise.index(i) for i in self.direction]
 
-        if np.array_equal(action, [1, 0, 0]):
-            new_dir = clock_wise[idx]  # no change
-        elif np.array_equal(action, [0, 1, 0]):
-            next_idx = (idx + 1) % 4
-            new_dir = clock_wise[next_idx]  # right turn r -> d -> l -> u
-        else:  # [0, 0, 1]
-            next_idx = (idx - 1) % 4
-            new_dir = clock_wise[next_idx]  # left turn r -> u -> l -> d
+        new_dir = [None] * self.UAV_Count
 
-        self.direction = new_dir
+        for i in range(self.UAV_Count):
+            if np.array_equal(action[i], [1, 0, 0]):
+                new_dir[i] = clock_wise[idx[i]]  # no change
+            elif np.array_equal(action[i], [0, 1, 0]):
+                next_idx = (idx[i] + 1) % 4
+                new_dir[i] = clock_wise[next_idx]  # right turn r -> d -> l -> u
+            else:  # [0, 0, 1]
+                next_idx = (idx[i] - 1) % 4
+                new_dir[i] = clock_wise[next_idx]  # left turn r -> u -> l -> d
 
-        x = self.head.x
-        y = self.head.y
-        if self.direction == Direction.RIGHT:
-            x += BLOCK_SIZE
-        elif self.direction == Direction.LEFT:
-            x -= BLOCK_SIZE
-        elif self.direction == Direction.DOWN:
-            y += BLOCK_SIZE
-        elif self.direction == Direction.UP:
-            y -= BLOCK_SIZE
+            self.direction[i] = new_dir[i]
+            # print(new_dir[i], action[i])
 
-        self.head = Point(x, y)
+            x = self.head[i].x
+            y = self.head[i].y
+            if self.direction[i] == Direction.RIGHT:
+                # print('right')
+                x += BLOCK_SIZE
+            elif self.direction[i] == Direction.LEFT:
+                x -= BLOCK_SIZE
+                # print('left')
+            elif self.direction[i] == Direction.DOWN:
+                y += BLOCK_SIZE
+                # print('down')
+            elif self.direction[i] == Direction.UP:
+                y -= BLOCK_SIZE
+                # print('up')
+
+            self.head[i] = Point(x, y)
+        # print(self.head)

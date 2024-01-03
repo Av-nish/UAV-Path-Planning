@@ -21,17 +21,17 @@ class Agent:
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
-    def get_state(self, env):
-        head = env.head
+    def get_state(self, env, idx):
+        head = env.head[idx]
         point_l = Point(head.x - 20, head.y)
         point_r = Point(head.x + 20, head.y)
         point_u = Point(head.x, head.y - 20)
         point_d = Point(head.x, head.y + 20)
         
-        dir_l = env.direction == Direction.LEFT
-        dir_r = env.direction == Direction.RIGHT
-        dir_u = env.direction == Direction.UP
-        dir_d = env.direction == Direction.DOWN
+        dir_l = env.direction[idx] == Direction.LEFT
+        dir_r = env.direction[idx] == Direction.RIGHT
+        dir_u = env.direction[idx] == Direction.UP
+        dir_d = env.direction[idx] == Direction.DOWN
 
         state = [
             # Danger straight
@@ -59,10 +59,10 @@ class Agent:
             dir_d,
             
             # Direction of destination
-            env.destination.x < env.head.x,  # destination left
-            env.destination.x > env.head.x,  # destination right
-            env.destination.y < env.head.y,  # destination up
-            env.destination.y > env.head.y  # destination down
+            env.destination.x < head.x,  # destination left
+            env.destination.x > head.x,  # destination right
+            env.destination.y < head.y,  # destination up
+            env.destination.y > head.y  # destination down
             ]
 
         return np.array(state, dtype=int)
@@ -109,40 +109,66 @@ def train():
     env = Environment()
     while True:
         # get old state
-        state_old = agent.get_state(env)
+
+        state_old = [None] * env.UAV_Count
+        final_move = [None] * env.UAV_Count
+        reward = [0] * env.UAV_Count
+        done = [False] * env.UAV_Count
+        # print("done ka size", len(done))
+        score = [0] * env.UAV_Count
+        state_new = [None] * env.UAV_Count
+
+        for i in range(env.UAV_Count):
+            state_old[i] = agent.get_state(env, i)
 
         # get move
-        final_move = agent.get_action(state_old)
+        final_move = [agent.get_action(s) for s in state_old]
+        # print(final_move)
 
         # perform move and get new state
-        reward, done, score = env.play_step(final_move)
-        state_new = agent.get_state(env)
+        # for i in range(env.UAV_Count):
+        _r, _d, _s = env.play_step(final_move)
+        
+        for i in range(len(_r)):
 
+            reward[i] = _r[i]
+            done[i] = _d[i]
+            score[i] = _s[i]
+
+        for i in range(env.UAV_Count):
+            state_new[i] = agent.get_state(env, i)
+
+        # print(state_new)
         # train short memory
-        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+        for i in range(env.UAV_Count):
+            agent.train_short_memory(state_old[i], final_move[i], reward[i], state_new[i], done[i])
 
         # remember
-        agent.remember(state_old, final_move, reward, state_new, done)
+        for i in range(env.UAV_Count):
+            agent.remember(state_old[i], final_move[i], reward[i], state_new[i], done[i])
 
-        if done:
+        # print(done)
+        if all(done):
             # train long memory, plot result
+            # print('reset karo')
             env.reset()
             agent.no_of_episodes += 1
             agent.train_long_memory()
 
-            if score > record:
-                record = score
-                agent.model.save()
+            # if score > record:
+            #     record = score
+            #     agent.model.save()
 
             # print('Game', agent.no_of_episodes, 'Score', score, 'Record:', record)
 
-            plot_scores.append(score)
-            total_score += score
+            plot_scores.append(sum(score))
+            total_score += sum(score)
             mean_score = total_score / agent.no_of_episodes
             plot_mean_scores.append(mean_score)
             plot(plot_scores, plot_mean_scores)
 
             print('Episodes', agent.no_of_episodes, 'AvgScore', "{:.4f}".format(mean_score))
+            print(score)
 
 
 if __name__ == '__main__':

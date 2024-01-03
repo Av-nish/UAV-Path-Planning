@@ -19,3 +19,4 @@ def plot(scores, mean_scores):
     plt.show(block=False)
     plt.pause(.1)
     plt.show()
+  
