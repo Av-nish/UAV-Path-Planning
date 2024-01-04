@@ -5,6 +5,9 @@ from collections import deque
 from environment import Environment, Direction, Point
 from model import Linear_QNet, QTrainer
 from helper import plot
+import cv2
+from ultralytics import YOLO
+from output import Output
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
@@ -100,15 +103,16 @@ class Agent:
         return final_move
 
 
-def train():
+def train(vdo_path, model_path, output_path):
+
+    output = Output(vdo_path, model_path, output_path)
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
-    record = 0
+    # record = 0
     agent = Agent()
     env = Environment()
     while True:
-        # get old state
 
         state_old = [None] * env.UAV_Count
         final_move = [None] * env.UAV_Count
@@ -121,12 +125,12 @@ def train():
         for i in range(env.UAV_Count):
             state_old[i] = agent.get_state(env, i)
 
+
         # get move
         final_move = [agent.get_action(s) for s in state_old]
         # print(final_move)
 
         # perform move and get new state
-        # for i in range(env.UAV_Count):
         _r, _d, _s = env.play_step(final_move)
         
         for i in range(len(_r)):
@@ -138,7 +142,7 @@ def train():
         for i in range(env.UAV_Count):
             state_new[i] = agent.get_state(env, i)
 
-        # print(state_new)
+
         # train short memory
         for i in range(env.UAV_Count):
             agent.train_short_memory(state_old[i], final_move[i], reward[i], state_new[i], done[i])
@@ -172,4 +176,8 @@ def train():
 
 
 if __name__ == '__main__':
-    train()
+
+    vdo_path = '/home/anthrax/Projects/國立中正大學/Project/UAV-Path-Planning/data/video/video_for_test/testvid7.mov'
+    model_path = r'/home/anthrax/Projects/國立中正大學/Project/UAV-Path-Planning/training/runs/detect/train36-v8l/weights/best.pt'
+    output_path = '/home/anthrax/Projects/國立中正大學/Project/RL/UAV-Path-Planning/output/output.mp4'
+    train(vdo_path, model_path, output_path)
