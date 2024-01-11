@@ -102,8 +102,7 @@ class Environment:
         self.set_destination()
         self.place_obstacle()
         self.frame_iteration = 0
-        self.distane_left = [calculate_distance(
-            self.head[i], self.destination) for i in range(self.UAV_Count)]
+        self.distane_left = [calculate_distance(self.head[i], self.destination) for i in range(self.UAV_Count)]
 
     def set_destination(self):
         x = 0
@@ -166,7 +165,7 @@ class Environment:
                 self.score[i] += 1
                 game_over[i] = True
                 reward[i] = 10
-
+        
         if all(game_over):
             return reward, game_over, self.score
 
@@ -177,8 +176,8 @@ class Environment:
         return reward, game_over, self.score
 
     def is_collision(self, pt=None):
-        # if pt is None:
-        #     pt = self.head
+        if pt is None:
+            pt = self.head
         # hits boundary
         if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
             return True
@@ -186,16 +185,6 @@ class Environment:
         # hits obstacle
         if pt in self.obstacle:  # or pt in self.fixed_obstacles:
             return True
-        
-        c = 0
-        
-        # Hits other UAVs
-        for _head in self.head:
-            if _head == pt:
-                c += 1
-        
-        if c == 2:
-           return True 
 
         # if pt in self.fixed_obstacles:
         #     print('fixed obs*******************')
@@ -230,7 +219,7 @@ class Environment:
         # print(action)
         clock_wise = [Direction.RIGHT, Direction.DOWN,
                       Direction.LEFT, Direction.UP]
-
+        
         # idx = clock_wise.index(self.direction)
         idx = [clock_wise.index(i) for i in self.direction]
 
@@ -241,8 +230,7 @@ class Environment:
                 new_dir[i] = clock_wise[idx[i]]  # no change
             elif np.array_equal(action[i], [0, 1, 0]):
                 next_idx = (idx[i] + 1) % 4
-                # right turn r -> d -> l -> u
-                new_dir[i] = clock_wise[next_idx]
+                new_dir[i] = clock_wise[next_idx]  # right turn r -> d -> l -> u
             else:  # [0, 0, 1]
                 next_idx = (idx[i] - 1) % 4
                 new_dir[i] = clock_wise[next_idx]  # left turn r -> u -> l -> d
