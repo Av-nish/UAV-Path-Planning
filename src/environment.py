@@ -149,28 +149,32 @@ class Environment:
         # Reward according to distance (give reward according to f cost instead)
         for i in range(self.UAV_Count):
             d_left = calculate_distance(self.head[i], self.destination)
-            reward[i] += self.distane_left[i] - d_left
+            reward[i] += self.distane_left[i] - d_left   # TODO normalize acc to initial distance *******************
             self.distane_left[i] = d_left
 
-        game_over = [False] * self.UAV_Count
+        # game_over = [False] * self.UAV_Count
+
+        game_over = [True if action[i] == None else False for i in range(self.UAV_Count)]
 
         for i in range(self.UAV_Count):
-            if self.is_collision(pt=self.head[i]) or self.frame_iteration > 110 * (1 + self.score[i]):  # was 90
-                # print('takkar')
-                game_over[i] = True
-                reward[i] = -10
+            if not game_over[i]:
+                if self.is_collision(pt=self.head[i]) or self.frame_iteration > 110 * (1 + self.score[i]):  # was 90
+                    # print('takkar')
+                    game_over[i] = True
+                    reward[i] = -10
 
         if all(game_over):
-            print('over', game_over)
+            # print('over', game_over)
             return reward, game_over, self.score
 
-        # 4. place new destination or just move
+        # 4. just move
         for i in range(self.UAV_Count):
-            # if self.score[i] != 1 and self.head[i] == self.destination:
-            if self.score[i] != 1 and calculate_distance(self.head[i], self.destination) < 73:
-                self.score[i] += 1
-                game_over[i] = True
-                reward[i] = 10
+            if not game_over[i]:
+                # if self.score[i] != 1 and self.head[i] == self.destination:
+                if self.score[i] != 1 and calculate_distance(self.head[i], self.destination) < 73:
+                    self.score[i] += 1
+                    game_over[i] = True
+                    reward[i] = 10
 
         if all(game_over):
             return reward, game_over, self.score
@@ -234,7 +238,7 @@ class Environment:
 
     def _move(self, action):
         # [straight, right, left, diag_left, diag_right]
-        
+        print('before', self.head)
         clock_wise = [Direction.RIGHT, Direction.DR, Direction.DOWN,
                       Direction.DL, Direction.LEFT, Direction.UL, Direction.UP, Direction.UR]
 
@@ -244,6 +248,10 @@ class Environment:
         new_dir = [None] * self.UAV_Count
 
         for i in range(self.UAV_Count):
+
+            if action[i] == None:
+                continue
+
             if np.array_equal(action[i], [1, 0, 0, 0, 0]):
                 new_dir[i] = clock_wise[idx[i]]  # no change
 
@@ -300,4 +308,5 @@ class Environment:
                 x += BLOCK_SIZE
 
             self.head[i] = Point(x, y)
+        print('after', self.head)
         # print(self.head)

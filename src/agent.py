@@ -155,6 +155,28 @@ def train(vdo_path, model_path, output_path):
     env = Environment()
     model = YOLO(model_path)
 
+
+    state_old = [None] * env.UAV_Count
+    final_move = [None] * env.UAV_Count
+    reward = [0] * env.UAV_Count      
+    state_new = [None] * env.UAV_Count
+    done = [False] * env.UAV_Count
+
+    score = [0] * env.UAV_Count
+    
+    def data_reset():
+        global state_old, final_move, reward, state_new, done, score
+
+        state_old = [None] * env.UAV_Count
+        final_move = [None] * env.UAV_Count
+        reward = [0] * env.UAV_Count      
+        state_new = [None] * env.UAV_Count
+        done = [False] * env.UAV_Count
+
+        score = [0] * env.UAV_Count
+
+    data_reset()
+
     # x = 0    
     while True:
 
@@ -203,22 +225,26 @@ def train(vdo_path, model_path, output_path):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-            state_old = [None] * env.UAV_Count
-            final_move = [None] * env.UAV_Count
-            reward = [0] * env.UAV_Count
-            state_new = [None] * env.UAV_Count
-            done = [False] * env.UAV_Count
+            # state_old = [None] * env.UAV_Count
+            # final_move = [None] * env.UAV_Count
+            # reward = [0] * env.UAV_Count      
+            # state_new = [None] * env.UAV_Count
+            # done = [False] * env.UAV_Count
 
-            score = [0] * env.UAV_Count
+            # score = [0] * env.UAV_Count
 
             for i in range(env.UAV_Count):
-                state_old[i] = agent.get_state(env, i)
+                if not done[i]:
+                    state_old[i] = agent.get_state(env, i)
 
 
             # get move
-            final_move = [agent.get_action(s) for s in state_old]
-            # print(final_move)
+            # final_move = [agent.get_action(s) for s in state_old]
+            # print("state old", state_old)
+            final_move = [None if done[i] else agent.get_action(s) for i, s in enumerate(state_old)]
 
+            # print(final_move)
+    
             # perform move and get new state
             _r, _d, _s = env.play_step(final_move)
             
@@ -227,18 +253,23 @@ def train(vdo_path, model_path, output_path):
                 reward[i] = _r[i]
                 done[i] = _d[i]
                 score[i] = _s[i]
+                
 
             for i in range(env.UAV_Count):
+                # if not done[i]:
                 state_new[i] = agent.get_state(env, i)
 
+            # print("state new", state_new)
 
             # train short memory
             for i in range(env.UAV_Count):
-                agent.train_short_memory(state_old[i], final_move[i], reward[i], state_new[i], done[i])
+                if final_move[i]:               # Data duplicate
+                    agent.train_short_memory(state_old[i], final_move[i], reward[i], state_new[i], done[i])
 
             # remember
             for i in range(env.UAV_Count):
-                agent.remember(state_old[i], final_move[i], reward[i], state_new[i], done[i])
+                if final_move[i]: 
+                    agent.remember(state_old[i], final_move[i], reward[i], state_new[i], done[i])
 
             # print(done)
             if all(done):
@@ -262,6 +293,7 @@ def train(vdo_path, model_path, output_path):
 
                 print('Episodes', agent.no_of_episodes, 'AvgScore', "{:.4f}".format(mean_score))
                 print(score)
+                data_reset()
 
         video_feed.vdo.release()
         cv2.destroyAllWindows()
