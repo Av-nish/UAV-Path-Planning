@@ -8,10 +8,12 @@ from helper import plot
 import cv2
 from ultralytics import YOLO
 from output import Output
+import cv2
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
+obstacle_radius = 10
 
 class Agent:
 
@@ -20,7 +22,7 @@ class Agent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11, 256, 3)
+        self.model = Linear_QNet(21, 256, 5)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
@@ -30,18 +32,35 @@ class Agent:
         point_r = Point(head.x + 20, head.y)
         point_u = Point(head.x, head.y - 20)
         point_d = Point(head.x, head.y + 20)
+
+        #diagonal Points
+        point_ul = Point(head.x - 20, head.y + 20)  
+        point_ur = Point(head.x + 20, head.y + 20)
+        point_dl = Point(head.x - 20, head.y - 20)
+        point_dr = Point(head.x + 20, head.y - 20)
+
         
         dir_l = env.direction[idx] == Direction.LEFT
         dir_r = env.direction[idx] == Direction.RIGHT
         dir_u = env.direction[idx] == Direction.UP
         dir_d = env.direction[idx] == Direction.DOWN
 
+        dir_ul = env.direction[idx] == Direction.UL
+        dir_ur = env.direction[idx] == Direction.UR
+        dir_dl = env.direction[idx] == Direction.DL
+        dir_dr = env.direction[idx] == Direction.DR
+
         state = [
             # Danger straight
             (dir_r and env.is_collision(point_r)) or 
             (dir_l and env.is_collision(point_l)) or 
             (dir_u and env.is_collision(point_u)) or 
-            (dir_d and env.is_collision(point_d)),
+            (dir_d and env.is_collision(point_d)) or
+            
+            (dir_ul and env.is_collision(point_ul)) or 
+            (dir_ur and env.is_collision(point_ur)) or 
+            (dir_dl and env.is_collision(point_dl)) or 
+            (dir_dr and env.is_collision(point_dr)),
 
             # Danger right
             (dir_u and env.is_collision(point_r)) or 
@@ -55,17 +74,40 @@ class Agent:
             (dir_r and env.is_collision(point_u)) or 
             (dir_l and env.is_collision(point_d)),
             
+            #DAnger back can be added.
+            # Danger diag left
+            (dir_ul and env.is_collision(point_dl)) or
+            (dir_dl and env.is_collision(point_dr)) or
+            (dir_dr and env.is_collision(point_ur)) or
+            (dir_ur and env.is_collision(point_ul)),
+
+            #danger diag right
+            (dir_ul and env.is_collision(point_ur)) or
+            (dir_ur and env.is_collision(point_dr)) or
+            (dir_dr and env.is_collision(point_dl)) or
+            (dir_dl and env.is_collision(point_ul)),
+            
             # Move direction
             dir_l,
             dir_r,
             dir_u,
             dir_d,
+
+            dir_ul, 
+            dir_ur,
+            dir_dl,
+            dir_dr,
             
             # Direction of destination
-            env.destination.x < head.x,  # destination left
-            env.destination.x > head.x,  # destination right
-            env.destination.y < head.y,  # destination up
-            env.destination.y > head.y  # destination down
+            (env.destination.x < head.x and env.destination.y == head.y),  # destination left
+            (env.destination.x > head.x and env.destination.y == head.y),  # destination right
+            (env.destination.y < head.y and env.destination.x == head.x),  # destination up
+            (env.destination.y > head.y and env.destination.x == head.x),  # destination down
+
+            (env.destination.y < head.y and env.destination.x < head.x),    # destination up left
+            (env.destination.y < head.y and env.destination.x > head.x),    # destination up right
+            (env.destination.y > head.y and env.destination.x < head.x),    # destination down left
+            (env.destination.y > head.y and env.destination.x > head.x),    # destination up right
             ]
 
         return np.array(state, dtype=int)
@@ -90,7 +132,7 @@ class Agent:
     def get_action(self, state):
         # random moves: tradeoff exploration / exploitation
         self.epsilon = 80 - self.no_of_episodes
-        final_move = [0,0,0]
+        final_move = [0, 0, 0, 0, 0]
         if random.randint(0, 200) < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
@@ -105,75 +147,124 @@ class Agent:
 
 def train(vdo_path, model_path, output_path):
 
-    output = Output(vdo_path, model_path, output_path)
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
     # record = 0
     agent = Agent()
     env = Environment()
+    model = YOLO(model_path)
+
+    # x = 0    
     while True:
 
-        state_old = [None] * env.UAV_Count
-        final_move = [None] * env.UAV_Count
-        reward = [0] * env.UAV_Count
-        done = [False] * env.UAV_Count
-        # print("done ka size", len(done))
-        score = [0] * env.UAV_Count
-        state_new = [None] * env.UAV_Count
+        video_feed = Output(vdo_path, model_path, output_path)
+        # x += 1
+        # print(x)
+        while video_feed.vdo.isOpened():
+            env.obstacle = []
+            ret, frame = video_feed.vdo.read()
 
-        for i in range(env.UAV_Count):
-            state_old[i] = agent.get_state(env, i)
+            if not ret:
+                print("Video Over")
+                break
+            
+            frame_w = video_feed.width//2
+            frame_h =  video_feed.height//2
+            # print(frame_w, frame_h)
+
+            frame = cv2.resize(frame, (frame_w, frame_h))
+            results = model.predict(frame, imgsz=(frame_h, frame_w), verbose=False)
+
+            box = None
+
+            for result in results:           # len(results == 1)
+                box = result.boxes.xywh
+            
+            for coor in box:
+
+                yolo_result = coor.tolist()
+                env.obstacle.append(Point(int(yolo_result[0]), int(yolo_result[1])))
+                cv2.circle(frame, (int(coor[0]), int(
+                    coor[1])), obstacle_radius, (0, 0, 255), thickness=3)
+                
+                cv2.circle(frame, (int(coor[0]), int(
+                    coor[1])), obstacle_radius+10, (255, 0, 0), thickness=2)
+            
+            for _h in env.head:
+                cv2.circle(frame, (int(_h[0]), int(
+                    _h[1])), 7, (255, 255, 0), thickness=-1)
+            
+            cv2.circle(frame, (int(env.destination[0]), int(
+                    env.destination[1])), 15, (255, 0, 0), thickness=-1)
+
+            cv2.imshow('Battlefield', frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+            state_old = [None] * env.UAV_Count
+            final_move = [None] * env.UAV_Count
+            reward = [0] * env.UAV_Count
+            state_new = [None] * env.UAV_Count
+            done = [False] * env.UAV_Count
+
+            score = [0] * env.UAV_Count
+
+            for i in range(env.UAV_Count):
+                state_old[i] = agent.get_state(env, i)
 
 
-        # get move
-        final_move = [agent.get_action(s) for s in state_old]
-        # print(final_move)
+            # get move
+            final_move = [agent.get_action(s) for s in state_old]
+            # print(final_move)
 
-        # perform move and get new state
-        _r, _d, _s = env.play_step(final_move)
-        
-        for i in range(len(_r)):
+            # perform move and get new state
+            _r, _d, _s = env.play_step(final_move)
+            
+            for i in range(len(_r)):
 
-            reward[i] = _r[i]
-            done[i] = _d[i]
-            score[i] = _s[i]
+                reward[i] = _r[i]
+                done[i] = _d[i]
+                score[i] = _s[i]
 
-        for i in range(env.UAV_Count):
-            state_new[i] = agent.get_state(env, i)
+            for i in range(env.UAV_Count):
+                state_new[i] = agent.get_state(env, i)
 
 
-        # train short memory
-        for i in range(env.UAV_Count):
-            agent.train_short_memory(state_old[i], final_move[i], reward[i], state_new[i], done[i])
+            # train short memory
+            for i in range(env.UAV_Count):
+                agent.train_short_memory(state_old[i], final_move[i], reward[i], state_new[i], done[i])
 
-        # remember
-        for i in range(env.UAV_Count):
-            agent.remember(state_old[i], final_move[i], reward[i], state_new[i], done[i])
+            # remember
+            for i in range(env.UAV_Count):
+                agent.remember(state_old[i], final_move[i], reward[i], state_new[i], done[i])
 
-        # print(done)
-        if all(done):
-            # train long memory, plot result
-            # print('reset karo')
-            env.reset()
-            agent.no_of_episodes += 1
-            agent.train_long_memory()
+            # print(done)
+            if all(done):
+                # train long memory, plot result
+                # print('reset karo')
+                env.reset()
+                agent.no_of_episodes += 1
+                agent.train_long_memory()
 
-            # if score > record:
-            #     record = score
-            #     agent.model.save()
+                # if score > record:
+                #     record = score
+                #     agent.model.save()
 
-            # print('Game', agent.no_of_episodes, 'Score', score, 'Record:', record)
+                # print('Game', agent.no_of_episodes, 'Score', score, 'Record:', record)
 
-            plot_scores.append(sum(score))
-            total_score += sum(score)
-            mean_score = total_score / agent.no_of_episodes
-            plot_mean_scores.append(mean_score)
-            plot(plot_scores, plot_mean_scores)
+                plot_scores.append(sum(score))
+                total_score += sum(score)
+                mean_score = total_score / agent.no_of_episodes
+                plot_mean_scores.append(mean_score)
+                plot(plot_scores, plot_mean_scores)
 
-            print('Episodes', agent.no_of_episodes, 'AvgScore', "{:.4f}".format(mean_score))
-            print(score)
+                print('Episodes', agent.no_of_episodes, 'AvgScore', "{:.4f}".format(mean_score))
+                print(score)
 
+        video_feed.vdo.release()
+        cv2.destroyAllWindows()
 
 if __name__ == '__main__':
 
