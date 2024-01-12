@@ -171,7 +171,7 @@ class Environment:
         for i in range(self.UAV_Count):
             if not game_over[i]:
                 # if self.score[i] != 1 and self.head[i] == self.destination:
-                if self.score[i] != 1 and calculate_distance(self.head[i], self.destination) < 73:
+                if self.score[i] != 1 and calculate_distance(self.head[i], self.destination) < 50:
                     self.score[i] += 1
                     game_over[i] = True
                     reward[i] = 10
@@ -197,11 +197,11 @@ class Environment:
         #     return True
 
         for obst in self.obstacle:
-            if calculate_distance(pt, obst) <= 50:    # play with value 50
+            if calculate_distance(pt, obst) <= 30:    # play with values
                 return True
         
         _c = 0
-        for h in self.head:   # Wrong check distance rathar
+        for h in self.head:   # TODO Wrong check distance rathar
             if pt == h:
                 _c += 1
 
@@ -238,7 +238,7 @@ class Environment:
 
     def _move(self, action):
         # [straight, right, left, diag_left, diag_right]
-        print('before', self.head)
+        # print('before', self.head)
         clock_wise = [Direction.RIGHT, Direction.DR, Direction.DOWN,
                       Direction.DL, Direction.LEFT, Direction.UL, Direction.UP, Direction.UR]
 
@@ -308,5 +308,5 @@ class Environment:
                 x += BLOCK_SIZE
 
             self.head[i] = Point(x, y)
-        print('after', self.head)
+        # print('after', self.head)
         # print(self.head)

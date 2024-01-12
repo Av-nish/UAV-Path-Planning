@@ -164,18 +164,18 @@ def train(vdo_path, model_path, output_path):
 
     score = [0] * env.UAV_Count
     
-    def data_reset():
-        global state_old, final_move, reward, state_new, done, score
+    # def data_reset():
+    #     global state_old, final_move, reward, state_new, done, score
 
-        state_old = [None] * env.UAV_Count
-        final_move = [None] * env.UAV_Count
-        reward = [0] * env.UAV_Count      
-        state_new = [None] * env.UAV_Count
-        done = [False] * env.UAV_Count
+    #     state_old = [None] * env.UAV_Count
+    #     final_move = [None] * env.UAV_Count
+    #     reward = [0] * env.UAV_Count      
+    #     state_new = [None] * env.UAV_Count
+    #     done = [False] * env.UAV_Count
 
-        score = [0] * env.UAV_Count
+    #     score = [0] * env.UAV_Count
 
-    data_reset()
+    # data_reset()
 
     # x = 0    
     while True:
@@ -293,7 +293,14 @@ def train(vdo_path, model_path, output_path):
 
                 print('Episodes', agent.no_of_episodes, 'AvgScore', "{:.4f}".format(mean_score))
                 print(score)
-                data_reset()
+                # data_reset()
+                state_old = [None] * env.UAV_Count
+                final_move = [None] * env.UAV_Count
+                reward = [0] * env.UAV_Count      
+                state_new = [None] * env.UAV_Count
+                done = [False] * env.UAV_Count
+
+                score = [0] * env.UAV_Count
 
         video_feed.vdo.release()
         cv2.destroyAllWindows()
