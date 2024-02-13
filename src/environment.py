@@ -51,7 +51,7 @@ class Environment:
         self.h = h
         # init display
         self.obstacle = []
-        self.distane_left = [0] * UAV_Count
+        self.distane_left = [0] * UAV_Count 
         self.UAV_Count = UAV_Count
         self.head = []
 
@@ -79,13 +79,13 @@ class Environment:
         #         self.fixed_obstacles.append(i)
     # Return four points forming an irregular object
 
-        for i in range(8):
-            obstacle_x = random.randint(0, self.w)
-            obstacle_y = random.randint(0, self.h)
-            obstacle_x = obstacle_x // BLOCK_SIZE * BLOCK_SIZE
-            obstacle_y = obstacle_y // BLOCK_SIZE * BLOCK_SIZE
+        # for i in range(8):
+        #     obstacle_x = random.randint(0, self.w)
+        #     obstacle_y = random.randint(0, self.h)
+        #     obstacle_x = obstacle_x // BLOCK_SIZE * BLOCK_SIZE
+        #     obstacle_y = obstacle_y // BLOCK_SIZE * BLOCK_SIZE
 
-            self.obstacle.append(Point(obstacle_x, obstacle_y))
+        #     self.obstacle.append(Point(obstacle_x, obstacle_y))
 
         self.display = pygame.display.set_mode((self.w, self.h))
         pygame.display.set_caption('UAV')
@@ -98,8 +98,10 @@ class Environment:
 
         # for uav in range(UAV_Count):
 
-        self.head = [Point(self.w - BLOCK_SIZE, 0),
-                     Point((self.w // 2 - BLOCK_SIZE), 0), Point((3 * BLOCK_SIZE), 0)]
+        self.head = [Point(self.w - BLOCK_SIZE, 10),
+                     Point((5 * self.w // 7 - BLOCK_SIZE), 10), Point((3 * BLOCK_SIZE), 10)]
+
+        # self.head = [Point(10, 40)]
 
         self.score = [0] * self.UAV_Count
         self.destination = None
@@ -112,7 +114,12 @@ class Environment:
     def set_destination(self):
         # x = 0
         # y = self.h - BLOCK_SIZE
-        self.destination = Point(300, 300)
+        # self.destination = Point(530 , 780)
+        x = random.randint(0, self.w)
+        y = random.randint(0, self.h)
+        self.destination = Point(x , y)
+        # self.destination = Point(self.w - 150, 150)
+        # self.destination = Point(self.w - 150, self.h - 150)
 
     def place_obstacle(self):   # now works as clear obstacles rathar rename later
 
@@ -158,7 +165,7 @@ class Environment:
 
         for i in range(self.UAV_Count):
             if not game_over[i]:
-                if self.is_collision(pt=self.head[i]) or self.frame_iteration > 110 * (1 + self.score[i]):  # was 90
+                if self.is_collision(pt=self.head[i], game_over=game_over) or self.frame_iteration > 110 * (1 + self.score[i]):  # was 90
                     # print('takkar')
                     game_over[i] = True
                     reward[i] = -10
@@ -171,7 +178,7 @@ class Environment:
         for i in range(self.UAV_Count):
             if not game_over[i]:
                 # if self.score[i] != 1 and self.head[i] == self.destination:
-                if self.score[i] != 1 and calculate_distance(self.head[i], self.destination) < 50:
+                if self.score[i] != 1 and calculate_distance(self.head[i], self.destination) < 30:
                     self.score[i] += 1
                     game_over[i] = True
                     reward[i] = 10
@@ -185,10 +192,17 @@ class Environment:
         # 6. return game over and score
         return reward, game_over, self.score
 
-    def is_collision(self, pt=None):
+    def is_collision(self, pt=None, game_over=None, checking_state=False):
         # if pt is None:
         #     pt = self.head
         # hits boundary
+        collision_distance = 30
+        collision_distance_self = 10
+        if checking_state:
+            collision_distance = 50
+            collision_distance_self = 20
+
+
         if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
             return True
 
@@ -197,13 +211,16 @@ class Environment:
         #     return True
 
         for obst in self.obstacle:
-            if calculate_distance(pt, obst) <= 30:    # play with values
+            if calculate_distance(pt, obst) <= collision_distance:    # play with values
                 return True
         
+        # collision with other UAVs
         _c = 0
         for h in self.head:   # TODO Wrong check distance rathar
-            if pt == h:
-                _c += 1
+            idx = self.head.index(h)
+            if pt == h and game_over and not game_over[idx]:
+                if calculate_distance(pt, h) <= collision_distance_self:  
+                    _c += 1
 
         if _c == 2:
             return True
@@ -237,7 +254,7 @@ class Environment:
         pygame.display.flip()
 
     def _move(self, action):
-        # [straight, right, left, diag_left, diag_right]
+        # [straight, right, left, diag_left, diag_right, back, back_right, back_left]
         # print('before', self.head)
         clock_wise = [Direction.RIGHT, Direction.DR, Direction.DOWN,
                       Direction.DL, Direction.LEFT, Direction.UL, Direction.UP, Direction.UR]
@@ -252,25 +269,37 @@ class Environment:
             if action[i] == None:
                 continue
 
-            if np.array_equal(action[i], [1, 0, 0, 0, 0]):
+            if np.array_equal(action[i], [1, 0, 0, 0, 0, 0, 0, 0]):
                 new_dir[i] = clock_wise[idx[i]]  # no change
 
-            elif np.array_equal(action[i], [0, 1, 0, 0, 0]):
+            elif np.array_equal(action[i], [0, 1, 0, 0, 0, 0, 0, 0]):
                 next_idx = (idx[i] + 2) % 8
                 # right turn r -> d -> l -> u
                 new_dir[i] = clock_wise[next_idx]
 
-            elif np.array_equal(action[i], [0, 0, 1, 0, 0]):
+            elif np.array_equal(action[i], [0, 0, 1, 0, 0, 0, 0, 0]):
 
                 next_idx = (idx[i] - 2) % 8
                 new_dir[i] = clock_wise[next_idx]  # left turn r -> u -> l -> d
             
-            elif np.array_equal(action[i], [0, 0, 0, 1, 0]):
+            elif np.array_equal(action[i], [0, 0, 0, 1, 0, 0, 0, 0]):
                 next_idx = (idx[i] - 1) % 8
                 new_dir[i] = clock_wise[next_idx]
             
-            else:                               # [0, 0, 0, 0, 1]
+            elif np.array_equal(action[i], [0, 0, 0, 0, 1, 0, 0, 0]):                          
                 next_idx = (idx[i] + 1) % 8
+                new_dir[i] = clock_wise[next_idx]
+
+            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 1, 0, 0]): 
+                next_idx = (idx[i] + 4) % 8
+                new_dir[i] = clock_wise[next_idx]
+
+            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 0, 1, 0]): 
+                next_idx = (idx[i] + 3) % 8
+                new_dir[i] = clock_wise[next_idx]
+
+            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 0, 0, 1]): 
+                next_idx = (idx[i] + 5) % 8
                 new_dir[i] = clock_wise[next_idx]
 
             self.direction[i] = new_dir[i]
