@@ -179,8 +179,8 @@ class Agent:
 
     def get_action(self, state):
         # random moves: tradeoff exploration / exploitation
-        # self.epsilon = 80 - self.no_of_episodes
-        self.epsilon = 0
+        self.epsilon = 80 - self.no_of_episodes
+        # self.epsilon = 0
         final_move = [0, 0, 0, 0, 0, 0, 0, 0]
 
         if random.randint(0, 200) < self.epsilon:  # Exploration (0, 200)
@@ -312,9 +312,9 @@ def train(vdo_path, model_path, output_path):
             # print("state new", state_new)
 
             # train short memory
-            # for i in range(env.UAV_Count):
-            #     if final_move[i]:               # Data duplicate
-            #         agent.train_short_memory(state_old[i], final_move[i], reward[i], state_new[i], done[i])
+            for i in range(env.UAV_Count):
+                if final_move[i]:               # Data duplicate
+                    agent.train_short_memory(state_old[i], final_move[i], reward[i], state_new[i], done[i])
 
             # remember
             for i in range(env.UAV_Count):
@@ -337,9 +337,9 @@ def train(vdo_path, model_path, output_path):
                 # print('reset karo')
                 env.reset()
                 agent.no_of_episodes += 1
-                # agent.train_long_memory()
+                agent.train_long_memory()
 
-                # agent.model.save()
+                agent.model.save()
 
                 # if score > record:
                 #     record = score

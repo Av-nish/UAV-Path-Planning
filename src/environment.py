@@ -51,7 +51,7 @@ class Environment:
         self.h = h
         # init display
         self.obstacle = []
-        self.distane_left = [0] * UAV_Count 
+        self.distane_left = [0] * UAV_Count
         self.UAV_Count = UAV_Count
         self.head = []
 
@@ -117,7 +117,7 @@ class Environment:
         # self.destination = Point(530 , 780)
         x = random.randint(0, self.w)
         y = random.randint(0, self.h)
-        self.destination = Point(x , y)
+        self.destination = Point(x, y)
         # self.destination = Point(self.w - 150, 150)
         # self.destination = Point(self.w - 150, self.h - 150)
 
@@ -156,16 +156,40 @@ class Environment:
         # Reward according to distance (give reward according to f cost instead)
         for i in range(self.UAV_Count):
             d_left = calculate_distance(self.head[i], self.destination)
-            reward[i] += self.distane_left[i] - d_left   # TODO normalize acc to initial distance *******************
+            # /self.distane_left[i] * 10  # Normal acc to distance covered
+            reward[i] += (self.distane_left[i] - d_left)
             self.distane_left[i] = d_left
+
+            distances = []
+            for obstacle in self.obstacle:
+                d = calculate_distance(self.head[i], obstacle)
+                distances.append((obstacle, d))
+
+            # # Sort the distances in ascending order
+            distances.sort(key=lambda x: x[1])
+
+            # # Extract the nearest three obstacles
+            nearest_obstacles = distances[:3]
+
+            total_distance_of_obstacles = 0
+            for obstacle, dist in nearest_obstacles:
+                # print(f"Obstacle at ({obstacle.x}, {obstacle.y}) - Distance: {dist}")
+                total_distance_of_obstacles += dist
+            print(total_distance_of_obstacles)
+            reward[i] += (5 * total_distance_of_obstacles/150)    # Change 5 and 150 accordingly (150 = 50 * 3)
+
+            # reward[i] -= (150 / (total_distance_of_obstacles+1))    # Change 5 and 150 accordingly (150 = 50 * 3)
+            # reward[i] = max(reward[i], 0)
 
         # game_over = [False] * self.UAV_Count
 
-        game_over = [True if action[i] == None else False for i in range(self.UAV_Count)]
+        game_over = [True if action[i] ==
+                     None else False for i in range(self.UAV_Count)]
 
         for i in range(self.UAV_Count):
             if not game_over[i]:
-                if self.is_collision(pt=self.head[i], game_over=game_over) or self.frame_iteration > 110 * (1 + self.score[i]):  # was 90
+                # was 90
+                if self.is_collision(pt=self.head[i], game_over=game_over) or self.frame_iteration > 110 * (1 + self.score[i]):
                     # print('takkar')
                     game_over[i] = True
                     reward[i] = -10
@@ -202,7 +226,6 @@ class Environment:
             collision_distance = 50
             collision_distance_self = 20
 
-
         if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
             return True
 
@@ -213,13 +236,13 @@ class Environment:
         for obst in self.obstacle:
             if calculate_distance(pt, obst) <= collision_distance:    # play with values
                 return True
-        
+
         # collision with other UAVs
         _c = 0
         for h in self.head:   # TODO Wrong check distance rathar
             idx = self.head.index(h)
             if pt == h and game_over and not game_over[idx]:
-                if calculate_distance(pt, h) <= collision_distance_self:  
+                if calculate_distance(pt, h) <= collision_distance_self:
                     _c += 1
 
         if _c == 2:
@@ -281,24 +304,24 @@ class Environment:
 
                 next_idx = (idx[i] - 2) % 8
                 new_dir[i] = clock_wise[next_idx]  # left turn r -> u -> l -> d
-            
+
             elif np.array_equal(action[i], [0, 0, 0, 1, 0, 0, 0, 0]):
                 next_idx = (idx[i] - 1) % 8
                 new_dir[i] = clock_wise[next_idx]
-            
-            elif np.array_equal(action[i], [0, 0, 0, 0, 1, 0, 0, 0]):                          
+
+            elif np.array_equal(action[i], [0, 0, 0, 0, 1, 0, 0, 0]):
                 next_idx = (idx[i] + 1) % 8
                 new_dir[i] = clock_wise[next_idx]
 
-            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 1, 0, 0]): 
+            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 1, 0, 0]):
                 next_idx = (idx[i] + 4) % 8
                 new_dir[i] = clock_wise[next_idx]
 
-            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 0, 1, 0]): 
+            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 0, 1, 0]):
                 next_idx = (idx[i] + 3) % 8
                 new_dir[i] = clock_wise[next_idx]
 
-            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 0, 0, 1]): 
+            elif np.array_equal(action[i], [0, 0, 0, 0, 0, 0, 0, 1]):
                 next_idx = (idx[i] + 5) % 8
                 new_dir[i] = clock_wise[next_idx]
 
@@ -323,15 +346,15 @@ class Environment:
             elif self.direction[i] == Direction.UL:
                 y -= BLOCK_SIZE
                 x -= BLOCK_SIZE
-            
+
             elif self.direction[i] == Direction.UR:
                 y -= BLOCK_SIZE
                 x += BLOCK_SIZE
-            
+
             elif self.direction[i] == Direction.DL:
                 y += BLOCK_SIZE
                 x -= BLOCK_SIZE
-            
+
             elif self.direction[i] == Direction.DR:
                 y += BLOCK_SIZE
                 x += BLOCK_SIZE
